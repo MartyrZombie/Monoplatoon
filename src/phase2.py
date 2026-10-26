@@ -98,13 +98,13 @@ def policy_letter_front(c, x, y, n):
 def fronts(c, cards, draw, label, backs=True, stock=''):
     pages = [cards[i:i + 9] for i in range(0, len(cards), 9)]
     for pi, pg in enumerate(pages):
-        heading(c, label + ', sheet %d of %d' % (pi + 1, len(pages)), stock or 'Cards 2 1/8 x 3 3/16 in. Print this sheet, flip on the long edge, print the next sheet for the backs.')
+        sheet_heading(c, label + ', sheet %d of %d' % (pi + 1, len(pages)), stock or 'Cards 2 1/8 x 3 3/16 in. Print this sheet, flip on the long edge, print the next sheet for the backs.')
         sheet_marks(c)
         for i, card in enumerate(pg):
             x, y = slot(i); draw(c, x, y, card, pi * 9 + i + 1)
         footer(c, 'Phase 2: ' + label + ' ' + str(pi + 1)); c.showPage()
         if not backs: continue
-        heading(c, label + ', backs, sheet %d of %d (mirrored for a long-edge flip)' % (pi + 1, len(pages)))
+        sheet_heading(c, label + ', backs, sheet %d of %d (mirrored for a long-edge flip)' % (pi + 1, len(pages)))
         sheet_marks(c)
         for i in range(len(pg)):
             x, y = slot(i, back=True); BACKS[label](c, x, y)

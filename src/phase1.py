@@ -180,13 +180,19 @@ def mascot_piece(c, x, y):
 STD = [sp for sp in BOARD if sp[2] != 'corner']
 CORNERS = [sp for sp in BOARD if sp[2] == 'corner']
 
-def page_std(c, items, label):
-    heading(c, 'Board stickers, true size: ' + label, 'Property, Rotation, utility, tax and card spaces at 1 5/8 x 2 9/16 in. Cut on the black line. Side-of-board spaces: rotate so the colour band faces the centre.')
+def std_cell(i):
+    """Lower-left corner of sticker i (0-11) on a sticker sheet. Also used by scripts/reprint_diff.py."""
     gx, gy = 0.42 * IN, H - 1.15 * IN
     gapx, gapy = (W - 2 * gx - 4 * SW) / 3, 14
+    r, k = divmod(i, 4)
+    return gx + k * (SW + gapx), gy - (r + 1) * SH - r * gapy
+
+STD_PER_SHEET = 12
+
+def page_std(c, items, label):
+    heading(c, 'Board stickers, true size: ' + label, 'Property, Rotation, utility, tax and card spaces at 1 5/8 x 2 9/16 in. Cut on the black line. Side-of-board spaces: rotate so the colour band faces the centre.')
     for i, sp in enumerate(items):
-        r, k = divmod(i, 4)
-        x = gx + k * (SW + gapx); y = gy - (r + 1) * SH - r * gapy
+        x, y = std_cell(i)
         sticker(c, x, y, sp); cutmarks(c, x, y, SW, SH)
     footer(c, 'Phase 1: board stickers, ' + label)
 
@@ -213,12 +219,12 @@ def page_corners(c):
         r, k = divmod(i, 2)
         x = gx + k * (CS + 8); y = top - (r + 1) * CS - r * 8
         corner(c, x, y, sp); cutmarks(c, x, y, CS, CS)
-    kx = gx + 2 * CS + 30; ky = top - 4
+    kx = gx + 2 * CS + 22; ky = top - 4
     head(c, 'PLACEMENT KEY', kx, ky, 9, anchor='l'); ky -= 12
-    c.setFont(MONO, 5.6)
+    c.setFont(MONO, 5.0)
     for sp in BOARD:
         c.setFillColor(GREY); c.drawString(kx, ky, '%2d %s' % (sp[0], ORIGINAL[sp[0]]))
-        c.setFillColor(black); c.drawString(kx + 92, ky, sp[1][:30])
+        c.setFillColor(black); c.drawString(kx + 78, ky, sp[1])
         ky -= 7.6
     footer(c, 'Phase 1: corners')
 

@@ -18,7 +18,7 @@ BOARD = [
     (14, 'FREEDOM PAWN', 'pink', 140, "Buy back your own Xbox at a 40% premium. It's a tradition too.", 'pawn', ''),
     (15, '29% APR MOTORS', 'pink', 160, 'A Charger on E-3 pay. The salesman salutes you. He is not in the Army.', 'car', 'E-3: Private First Class. The pay grade that buys the Charger.'),
     (16, 'JRTC', 'rr', 200, "Thirty days in a swamp pretending it's a different swamp.", 'swamp', 'JRTC: Joint Readiness Training Center, Louisiana.'),
-    (17, 'THE MOTOR POOL', 'orange', 180, 'Monday is Motor Pool Monday. So is Tuesday. The truck has not moved since the Obama administration.', 'truck', 'Motor pool: where vehicles are maintained, i.e. parked.'),
+    (17, 'THE MOTOR POOL', 'orange', 180, 'Monday is Motor Pool Monday. So is Tuesday. The truck has not moved since 2009.', 'truck', 'Motor pool: where vehicles are maintained, i.e. parked.'),
     (18, 'BARRACKS LAWYER', 'deck', '', '', '', ''),
     (19, 'THE SMOKE PIT', 'orange', 180, 'Where the real decisions are made and none of the official ones.', 'smoke', ''),
     (20, 'THE SUPPLY CAGE', 'orange', 200, "Open 1300-1330 on alternating Thursdays. Closed for inventory of the items it won't give you.", 'cage', "Supply: the office that has what you need and a reason you can't have it."),

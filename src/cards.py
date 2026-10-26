@@ -11,6 +11,13 @@ def slot(i, back=False):
     if back: k = COLS - 1 - k
     return GX + k * CW, H - GY - (r + 1) * CH
 
+def sheet_heading(c, title, note=''):
+    """Title in the top margin and the paper note in the bottom margin, both clear of the cards and cut marks."""
+    head(c, title, 36, H - 30, 12, anchor='l', maxw=W - 72)
+    if note:
+        s = fit_size(note, MONO, W - 72, 6.5)
+        c.setFont(MONO, s); c.setFillColor(GREY); c.drawCentredString(W / 2, 29, note)
+
 def frame(c, x, y):
     c.setStrokeColor(LGREY); c.setLineWidth(0.3); c.setFillColor(white); c.rect(x, y, CW, CH, fill=1, stroke=1)
     c.setStrokeColor(black); c.setLineWidth(1.0); c.rect(x + 6, y + 6, CW - 12, CH - 12, fill=0, stroke=1)
