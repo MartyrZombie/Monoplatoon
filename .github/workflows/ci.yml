@@ -47,7 +47,7 @@ jobs:
         run: python build.py
 
       - name: Upload proof build
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: monoplatoon-proof-${{ github.sha }}
           path: dist/

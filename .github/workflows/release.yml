@@ -113,7 +113,7 @@ jobs:
           cat notes.md
 
       - name: Keep the build, notes and QA report as a workflow artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: Monoplatoon-v${{ steps.v.outputs.version }}-print${{ env.PUBLISH != 'true' && '-dry-run' || '' }}
           path: |
