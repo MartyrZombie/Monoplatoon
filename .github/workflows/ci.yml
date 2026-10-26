@@ -32,11 +32,11 @@ jobs:
     name: Build print files
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.13'
           cache: pip
 
       - name: Install dependencies
@@ -47,17 +47,29 @@ jobs:
 
       - name: Check page counts
         run: |
-          sudo apt-get install -y -qq poppler-utils >/dev/null
-          check() { n=$(pdfinfo "dist/$1" | awk '/^Pages:/{print $2}'); echo "$1: $n pages"; [ "$n" = "$2" ] || { echo "::error::$1 has $n pages, expected $2"; exit 1; }; }
-          check Monoplatoon_Phase1_Board_Stickers.pdf 6
-          check Monoplatoon_Phase2_Decks.pdf 8
-          check Monoplatoon_Phase3_Characters_and_Deeds.pdf 10
-          check Monoplatoon_Phase4_Table_Pieces.pdf 24
-          check Monoplatoon_Phase5_Rulebook.pdf 7
-          check Monoplatoon_Complete_Print_Set.pdf 55
+          python - <<'PY'
+          import sys
+          from pypdf import PdfReader
+          expected = {
+              'Monoplatoon_Phase1_Board_Stickers.pdf': 6,
+              'Monoplatoon_Phase2_Decks.pdf': 8,
+              'Monoplatoon_Phase3_Characters_and_Deeds.pdf': 10,
+              'Monoplatoon_Phase4_Table_Pieces.pdf': 24,
+              'Monoplatoon_Phase5_Rulebook.pdf': 7,
+              'Monoplatoon_Complete_Print_Set.pdf': 55,
+          }
+          bad = 0
+          for name, want in expected.items():
+              got = len(PdfReader('dist/' + name).pages)
+              print(f'{name}: {got} pages (expected {want})')
+              if got != want:
+                  print(f'::error::{name} has {got} pages, expected {want}')
+                  bad += 1
+          sys.exit(1 if bad else 0)
+          PY
 
       - name: Upload proof build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: monoplatoon-proof-${{ github.sha }}
           path: dist/
