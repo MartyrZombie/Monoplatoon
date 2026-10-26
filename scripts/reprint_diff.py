@@ -195,6 +195,7 @@ def main():
     ap.add_argument('--old-version', required=True)
     ap.add_argument('--new-version', required=True)
     ap.add_argument('--zip', help='add the guide and reprint PDF to this print package')
+    ap.add_argument('--gh-notice', action='store_true', help='also print a one-line GitHub Actions notice')
     a = ap.parse_args()
 
     guide = os.path.join(a.new, 'REPRINT-since-v%s.md' % a.old_version)
@@ -270,6 +271,12 @@ def main():
             if n_out:
                 z.write(pdf_out, folder + '/' + os.path.basename(pdf_out))
     print(text)
+    if a.gh_notice:
+        if rows:
+            parts = ['%s p%s: %s' % (r[0], r[1], r[4]) for r in rows]
+            print('::notice title=Reprint since v%s (%d page%s)::%s' % (a.old_version, n_out, '' if n_out == 1 else 's', ' | '.join(parts)))
+        else:
+            print('::notice title=Reprint since v%s::Nothing printable changed.' % a.old_version)
 
 
 if __name__ == '__main__':
