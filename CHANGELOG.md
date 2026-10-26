@@ -2,6 +2,21 @@
 
 Each release's notes are taken from its section here, so write the entry before merging `develop` into `main`. Versions follow [Semantic Versioning](https://semver.org/): a new card or rule tweak is a minor bump, a typo or layout fix is a patch.
 
+## [0.1.1] - 2026-10-26
+
+Fixes found by the new quality check, plus the tooling that found them.
+
+### Fixed
+- **The Motor Pool** (sticker and deed): the joke no longer names a real person. "since the Obama administration" is now "since 2009", in line with the no-real-people rule.
+- **Card sheets:** the paper note ("Single-sided, black ink, on pale green…") was printed underneath the top row of cards, so only "Single-s" showed. It now sits below the cards, and the sheet title sits clear of the cut marks.
+- **Character backs heading** no longer runs off the right edge of the page.
+- **Sticker placement key** shows full names (it cut off "THE BATTALION CONFERENCE ROOM") and stays inside the page.
+
+### Added
+- **Quality check** (`scripts/quality_check.py` and the *Quality check* workflow on `develop` and `main`): 400+ checks of the design rules, including deck math against Chance and Community Chest, counts, dimensions and colours, glossary coverage, no real people or Hasbro characters, black-ink decks, mirrored backs, text overlap and overflow, and rulebook versus player-aid consistency. The release is blocked if it fails.
+- **Minimal reprints:** every release lists exactly which pages changed since the last one, on which paper, and attaches a PDF of just those pages. The rulebook reprints whole; double-sided sheets reprint as front and back.
+- `scripts/compare_builds.py` (page-by-page build comparison), `scripts/render_proofs.py` (PNG proofs for review), and `CLAUDE.md`.
+
 ## [0.1.0] - 2026-10-26
 
 First complete print-and-play set.

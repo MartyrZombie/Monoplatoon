@@ -1,7 +1,8 @@
 name: CI
 
 # Every push to develop, and every pull request, builds the full print set so a
-# broken script never reaches main. The build output is kept as a workflow
+# broken script never reaches main. Design rules and page counts are checked by
+# the separate Quality check workflow (qa.yml). The build output is kept as a workflow
 # artifact for 14 days so you can download and proof it before merging.
 
 on:
@@ -44,29 +45,6 @@ jobs:
 
       - name: Build
         run: python build.py
-
-      - name: Check page counts
-        run: |
-          python - <<'PY'
-          import sys
-          from pypdf import PdfReader
-          expected = {
-              'Monoplatoon_Phase1_Board_Stickers.pdf': 6,
-              'Monoplatoon_Phase2_Decks.pdf': 8,
-              'Monoplatoon_Phase3_Characters_and_Deeds.pdf': 10,
-              'Monoplatoon_Phase4_Table_Pieces.pdf': 24,
-              'Monoplatoon_Phase5_Rulebook.pdf': 7,
-              'Monoplatoon_Complete_Print_Set.pdf': 55,
-          }
-          bad = 0
-          for name, want in expected.items():
-              got = len(PdfReader('dist/' + name).pages)
-              print(f'{name}: {got} pages (expected {want})')
-              if got != want:
-                  print(f'::error::{name} has {got} pages, expected {want}')
-                  bad += 1
-          sys.exit(1 if bad else 0)
-          PY
 
       - name: Upload proof build
         uses: actions/upload-artifact@v5

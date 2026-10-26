@@ -1,0 +1,6 @@
+# Quality check, build comparison and reprint tools (scripts/). Not needed just to build.
+-r requirements.txt
+pdfplumber==0.11.10
+pdfminer.six==20260107
+pypdfium2==5.13.0
+Pillow==12.3.0

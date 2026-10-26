@@ -48,6 +48,10 @@ Monoplatoon_Phase4_Table_Pieces.pdf pp 1-6    goldenrod 65 lb        Player aids
 Monoplatoon_Complete_Print_Set.pdf is all of the above in one file, in the
 order listed, if you would rather send a single job to a print shop.
 
+Already printed an earlier version? Open REPRINT-since-v*.md in this folder
+(when present): it lists only the pages that changed, and the matching
+*-reprint-since-*.pdf holds just those pages.
+
 Uses the board, money, houses, hotels, dice and tokens from a US classic
 Monopoly set. All characters are invented. No real people appear.
 """
