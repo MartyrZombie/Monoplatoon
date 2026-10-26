@@ -1,0 +1,118 @@
+name: Release print package
+
+# Runs when develop is merged into main. Builds the print package and publishes it:
+#   1. GitHub Release  v<VERSION>  with the zip and every PDF attached
+#   2. GitHub Packages ghcr.io/<owner>/monoplatoon-print:<VERSION> (and :latest)
+#
+# The version comes from the VERSION file. If a release for that version already
+# exists, nothing is overwritten: the run builds, keeps the files as a workflow
+# artifact, and warns you to bump VERSION.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Read version
+        id: v
+        run: |
+          v=$(tr -d '[:space:]' < VERSION)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+          if gh release view "v$v" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Build
+        run: python build.py
+
+      - name: Keep the build as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Monoplatoon-v${{ steps.v.outputs.version }}-print
+          path: dist/
+
+      - name: Version already released
+        if: steps.v.outputs.exists == 'true'
+        run: echo "::warning::Release ${{ steps.v.outputs.tag }} already exists, so nothing was published. Bump VERSION and add a CHANGELOG entry on develop to cut a new release."
+
+      - name: Release notes from CHANGELOG
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          awk -v v="${{ steps.v.outputs.version }}" '
+            $0 ~ "^## \\[?" v "\\]?" {on=1; next}
+            on && /^## / {exit}
+            on {print}
+          ' CHANGELOG.md > notes.md
+          {
+            echo
+            echo "---"
+            echo "**Download \`Monoplatoon-v${{ steps.v.outputs.version }}-print.zip\`** for everything, with a README-PRINT.txt that says which paper each file goes on. Print at 100% / Actual size."
+          } >> notes.md
+          cat notes.md
+
+      - name: Create GitHub Release
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          gh release create "${{ steps.v.outputs.tag }}" \
+            --target "${{ github.sha }}" \
+            --title "MONOPLATOON ${{ steps.v.outputs.tag }}" \
+            --notes-file notes.md \
+            dist/Monoplatoon-v${{ steps.v.outputs.version }}-print.zip \
+            dist/Monoplatoon_Complete_Print_Set.pdf \
+            dist/Monoplatoon_Phase5_Rulebook.pdf \
+            dist/Monoplatoon_Phase1_Board_Stickers.pdf \
+            dist/Monoplatoon_Phase2_Decks.pdf \
+            dist/Monoplatoon_Phase3_Characters_and_Deeds.pdf \
+            dist/Monoplatoon_Phase4_Table_Pieces.pdf
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Set up ORAS
+        if: steps.v.outputs.exists == 'false'
+        uses: oras-project/setup-oras@v1
+
+      - name: Publish to GitHub Packages
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          ref="ghcr.io/$owner/monoplatoon-print"
+          echo "${{ github.token }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+          cd dist
+          oras push "$ref:${{ steps.v.outputs.version }}" \
+            --artifact-type application/vnd.monoplatoon.print.v1 \
+            --annotation "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --annotation "org.opencontainers.image.description=MONOPLATOON print package ${{ steps.v.outputs.tag }}" \
+            --annotation "org.opencontainers.image.version=${{ steps.v.outputs.version }}" \
+            "Monoplatoon-v${{ steps.v.outputs.version }}-print.zip:application/zip"
+          oras tag "$ref:${{ steps.v.outputs.version }}" latest
+          echo "Published $ref:${{ steps.v.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "oras pull $ref:${{ steps.v.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
