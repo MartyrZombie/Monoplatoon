@@ -92,7 +92,7 @@ def head(c, text, x, y, size, color=black, anchor='c', font='HeadB', maxw=None):
     return size
 
 def heading(c, title, sub=''):
-    head(c, title, 36, H - 50, 16, anchor='l')
+    head(c, title, 36, H - 50, 16, anchor='l', maxw=W - 72)
     if sub:
         text_block(c, 36, H - 56, W - 72, sub, MONO, 8, color=GREY)
 

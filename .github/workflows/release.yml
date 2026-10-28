@@ -1,29 +1,43 @@
 name: Release print package
 
-# Runs when develop is merged into main. Builds the print package and publishes it:
-#   1. GitHub Release  v<VERSION>  with the zip and every PDF attached
+# Runs when develop is merged into main. Builds the print package, checks it, and publishes:
+#   1. GitHub Release  v<VERSION>  with the zip, every PDF, and a reprint PDF
 #   2. GitHub Packages ghcr.io/<owner>/monoplatoon-print:<VERSION> (and :latest)
 #
-# The version comes from the VERSION file. If a release for that version already
-# exists, nothing is overwritten: the run builds, keeps the files as a workflow
-# artifact, and warns you to bump VERSION.
+# Minimal reprints: the new files are compared page by page with the previous release.
+# The release notes list exactly which pages changed and on which paper, and
+# Monoplatoon-v<new>-reprint-since-v<old>.pdf holds only those pages. The rulebook counts
+# as one object (any change = reprint it all); double-sided sheets come as front + back.
+#
+# Version comes from the VERSION file. If that release already exists nothing is overwritten.
+#
+# Run it by hand (Actions > Release print package > Run workflow) for a dry run on any
+# branch: it does everything except publish, and keeps the notes and files as an artifact.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish for real (only honoured on main). Leave off for a dry run.'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
   packages: write
 
 concurrency:
-  group: release
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PUBLISH: ${{ github.event_name == 'push' || (inputs.publish && github.ref == 'refs/heads/main') }}
     steps:
       - uses: actions/checkout@v5
 
@@ -33,7 +47,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-qa.txt
 
       - name: Read version
         id: v
@@ -41,65 +55,101 @@ jobs:
           v=$(tr -d '[:space:]' < VERSION)
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "tag=v$v" >> "$GITHUB_OUTPUT"
-          if gh release view "v$v" >/dev/null 2>&1; then
+          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$v" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-        env:
-          GH_TOKEN: ${{ github.token }}
+          prev=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=50" \
+                   --jq "[.[] | select(.draft | not) | select(.tag_name != \"v$v\") | .tag_name][0] // \"\"")
+          echo "prev_tag=$prev" >> "$GITHUB_OUTPUT"
+          echo "prev_version=${prev#v}" >> "$GITHUB_OUTPUT"
+          echo "Version v$v (already released: $(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$v" >/dev/null 2>&1 && echo yes || echo no)); previous release: ${prev:-none}; publish: $PUBLISH"
 
       - name: Build
         run: python build.py
 
-      - name: Keep the build as a workflow artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: Monoplatoon-v${{ steps.v.outputs.version }}-print
-          path: dist/
+      - name: Quality check (blocks the release on any error)
+        run: python scripts/quality_check.py --source --pdf dist --report qa-report.md
 
-      - name: Version already released
-        if: steps.v.outputs.exists == 'true'
-        run: echo "::warning::Release ${{ steps.v.outputs.tag }} already exists, so nothing was published. Bump VERSION and add a CHANGELOG entry on develop to cut a new release."
-
-      - name: Release notes from CHANGELOG
-        if: steps.v.outputs.exists == 'false'
+      - name: Fetch the previous release for comparison
+        if: steps.v.outputs.prev_tag != ''
         run: |
-          awk -v v="${{ steps.v.outputs.version }}" '
+          id=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/${{ steps.v.outputs.prev_tag }}" \
+                 --jq '[.assets[] | select(.name | endswith("-print.zip"))][0].id')
+          mkdir -p prev
+          gh api -H "Accept: application/octet-stream" "repos/$GITHUB_REPOSITORY/releases/assets/$id" > prev/package.zip
+          cd prev && unzip -q package.zip && find . -name '*.pdf' -exec mv {} . \;
+          ls -1 *.pdf
+
+      - name: Work out the minimal reprint
+        if: steps.v.outputs.prev_tag != ''
+        run: |
+          python scripts/reprint_diff.py prev dist \
+            --old-version "${{ steps.v.outputs.prev_version }}" \
+            --new-version "${{ steps.v.outputs.version }}" \
+            --zip "dist/Monoplatoon-v${{ steps.v.outputs.version }}-print.zip" --gh-notice
+          cat "dist/REPRINT-since-${{ steps.v.outputs.prev_tag }}.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Release notes
+        run: |
+          v="${{ steps.v.outputs.version }}"
+          awk -v v="$v" '
             $0 ~ "^## \\[?" v "\\]?" {on=1; next}
             on && /^## / {exit}
             on {print}
           ' CHANGELOG.md > notes.md
+          echo >> notes.md
+          if [ -n "${{ steps.v.outputs.prev_tag }}" ]; then
+            cat "dist/REPRINT-since-${{ steps.v.outputs.prev_tag }}.md" >> notes.md
+          else
+            printf '## Printing\n\nFirst release: print everything.\n' >> notes.md
+          fi
           {
             echo
             echo "---"
-            echo "**Download \`Monoplatoon-v${{ steps.v.outputs.version }}-print.zip\`** for everything, with a README-PRINT.txt that says which paper each file goes on. Print at 100% / Actual size."
+            echo "**New to MONOPLATOON?** Download \`Monoplatoon-v$v-print.zip\` for everything, with a README-PRINT.txt that says which paper each file goes on. Print at 100% / Actual size."
           } >> notes.md
           cat notes.md
 
-      - name: Create GitHub Release
-        if: steps.v.outputs.exists == 'false'
+      - name: Keep the build, notes and QA report as a workflow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: Monoplatoon-v${{ steps.v.outputs.version }}-print${{ env.PUBLISH != 'true' && '-dry-run' || '' }}
+          path: |
+            dist/
+            notes.md
+            qa-report.md
+
+      - name: Nothing to publish
+        if: env.PUBLISH != 'true' || steps.v.outputs.exists == 'true'
         run: |
+          if [ "$PUBLISH" != "true" ]; then
+            echo "::notice::Dry run: built, checked and wrote the notes, but published nothing."
+          else
+            echo "::warning::Release ${{ steps.v.outputs.tag }} already exists, so nothing was published. Bump VERSION and add a CHANGELOG entry on develop to cut a new release."
+          fi
+
+      - name: Create GitHub Release
+        if: env.PUBLISH == 'true' && steps.v.outputs.exists == 'false'
+        run: |
+          v="${{ steps.v.outputs.version }}"
+          assets=("dist/Monoplatoon-v$v-print.zip")
+          for f in dist/Monoplatoon-v$v-reprint-since-*.pdf; do [ -e "$f" ] && assets+=("$f"); done
+          assets+=(dist/Monoplatoon_Complete_Print_Set.pdf dist/Monoplatoon_Phase5_Rulebook.pdf dist/Monoplatoon_Phase1_Board_Stickers.pdf \
+                   dist/Monoplatoon_Phase2_Decks.pdf dist/Monoplatoon_Phase3_Characters_and_Deeds.pdf dist/Monoplatoon_Phase4_Table_Pieces.pdf)
           gh release create "${{ steps.v.outputs.tag }}" \
             --target "${{ github.sha }}" \
             --title "MONOPLATOON ${{ steps.v.outputs.tag }}" \
             --notes-file notes.md \
-            dist/Monoplatoon-v${{ steps.v.outputs.version }}-print.zip \
-            dist/Monoplatoon_Complete_Print_Set.pdf \
-            dist/Monoplatoon_Phase5_Rulebook.pdf \
-            dist/Monoplatoon_Phase1_Board_Stickers.pdf \
-            dist/Monoplatoon_Phase2_Decks.pdf \
-            dist/Monoplatoon_Phase3_Characters_and_Deeds.pdf \
-            dist/Monoplatoon_Phase4_Table_Pieces.pdf
-        env:
-          GH_TOKEN: ${{ github.token }}
+            "${assets[@]}"
 
       - name: Set up ORAS
-        if: steps.v.outputs.exists == 'false'
+        if: env.PUBLISH == 'true' && steps.v.outputs.exists == 'false'
         uses: oras-project/setup-oras@v1
 
       - name: Publish to GitHub Packages
-        if: steps.v.outputs.exists == 'false'
+        if: env.PUBLISH == 'true' && steps.v.outputs.exists == 'false'
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           ref="ghcr.io/$owner/monoplatoon-print"
@@ -113,6 +163,3 @@ jobs:
             "Monoplatoon-v${{ steps.v.outputs.version }}-print.zip:application/zip"
           oras tag "$ref:${{ steps.v.outputs.version }}" latest
           echo "Published $ref:${{ steps.v.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "oras pull $ref:${{ steps.v.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"

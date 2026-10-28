@@ -1,0 +1,52 @@
+name: Quality check
+
+# Checks every design rule a script can check (see CLAUDE.md, "Rules the QA enforces"):
+# deck math against Chance and Community Chest, card counts, dimensions and colours,
+# glossary coverage, no real people and no Hasbro characters, black-ink decks,
+# mirrored backs, text that overlaps or spills out of a card, and the key numbers
+# agreeing between the rulebook and the player aids. Runs on develop and main.
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    name: Design rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-qa.txt
+
+      - name: Checker self-test (planted faults must be caught)
+        run: python scripts/quality_check.py --self-test --report qa-selftest.md
+
+      - name: Game text and specs
+        run: python scripts/quality_check.py --source --report qa-source.md
+
+      - name: Build
+        run: python build.py
+
+      - name: Built PDFs
+        run: python scripts/quality_check.py --pdf dist --report qa-pdf.md
+
+      - name: Keep the reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: qa-report-${{ github.sha }}
+          path: qa-*.md
+          retention-days: 30

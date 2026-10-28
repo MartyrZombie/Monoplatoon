@@ -114,13 +114,13 @@ def deed(c, x, y, sp):
 def sheets(c, items, draw, label, stock, back_fn=None):
     pages = [items[i:i + 9] for i in range(0, len(items), 9)]
     for pi, pg in enumerate(pages):
-        heading(c, label + ', sheet %d of %d' % (pi + 1, len(pages)), stock)
+        sheet_heading(c, label + ', sheet %d of %d' % (pi + 1, len(pages)), stock)
         sheet_marks(c)
         for i, it in enumerate(pg):
             x, y = slot(i); draw(c, x, y, it, pi * 9 + i)
         footer(c, 'Phase 3: ' + label + ' ' + str(pi + 1)); c.showPage()
         if back_fn:
-            heading(c, label + ', backs, sheet %d of %d (mirrored for a long-edge flip)' % (pi + 1, len(pages)))
+            sheet_heading(c, label + ', backs, sheet %d of %d (mirrored for a long-edge flip)' % (pi + 1, len(pages)))
             sheet_marks(c)
             for i in range(len(pg)):
                 x, y = slot(i, back=True); back_fn(c, x, y)
